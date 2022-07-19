@@ -2,3 +2,21 @@
     display: grid;
     grid-template-columns: 50% 50%;
 }
+
+#hero-status .modebar-container {
+    display: none;
+}
+
+#param-controls {
+    display: inline-block;
+    width: 50%;
+}
+
+.param-control-group {
+    display: inline-block;
+}
+
+#time-slider {
+    display: inline-block;
+    width: 50%;
+}

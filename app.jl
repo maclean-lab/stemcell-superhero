@@ -1,45 +1,73 @@
+using Random
+
+using DifferentialEquations
+
 using Dash
 using PlotlyJS
 
-using Catalyst
-using DifferentialEquations
+println("Initializing Dash app...")
 
 # define a system to be simulated
-println("Initializing Dash app...")
-ss_system_spec = @reaction_network begin
-    λ, 0 --> SC # production of SC
-    a₁, SC --> 2 * SC
-    a₂, SC --> SC + P
-    a₃, SC --> 2 * P
-    a₄, P --> 2 * P
-    a₅, P --> P + D
-    a₆, P --> 2 * D
-    d₁, SC --> 0 # death rate of SC
-    d₂, P --> 0 # death rate of P
-    d₃, D --> 0 # death rate of D
-end λ a₁ a₂ a₃ a₄ a₅ a₆ d₁ d₂ d₃
+# FIXME: negative values in solution when parameter values are altered
+function μ_func(du, u, p, t)
+    SC, P, D = u
+    λ, a₁, a₂, a₃, a₄, a₅, a₆, d₁, d₂, d₃ = p
 
-species_names = ["Stem", "Progenitor", "Differentiated"]
-num_species = size(species_names, 1)
-ss_params = [0.25, 0.3, 0.3, 0.4, 0.33, 0.33, 0.33, 0.0, 0.1, 0.2]
-time_span = (0.0, 200.0)
-init_condition = [100.0, 0.0, 0.0] # [SC,P,D]
+    # stem
+    du[1] = λ + a₁ * SC - a₃ * SC - d₁ * SC
+    # progenitor
+    du[2] = a₂ * SC + a₄ * P + 2 * a₃ * SC - a₆ * P - d₂ * P
+    # differentiated
+    du[3] = a₅ * P + 2a₆ * P - d₃ * D
+end
 
-ss_ode_problem = ODEProblem(ss_system_spec, init_condition, time_span,
-                            ss_params)
-ss_solution = solve(ss_ode_problem, Tsit5())
+function σ_func(du, u, p, t)
+  du[1] = 10
+  du[2] = 10
+  du[3] = 10
+end
+
+cell_types = ["Stem", "Progenitor", "Differentiated"]
+num_cell_types = length(cell_types)
+ss_params = [20.0, 0.33, 0.3, 0.35, 0.33, 0.33, 0.33, 0.0, 0.4, 0.5]
+ss_params_min = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.24]
+ss_param_names = ["lambda", "a1", "a2", "a3", "a4", "a5", "a6", "d1", "d2",
+                  "d3"]
+num_ss_params = length(ss_params)
+ss_param2idx = Dict([ss_param_names[i] => i for i = 1:num_ss_params])
+time_span = (0.0, 100.0)
+init_condition = [1000.0, 100.0, 100.0]
+
+# solve the system given current parameter values
+function get_ss_solution()
+    ss_sde_problem = SDEProblem(μ_func, σ_func, init_condition, time_span,
+                                ss_params)
+    solve(ss_sde_problem, SOSRI())
+end
+
+ss_solution = get_ss_solution()
+
+# determine hero status based on number of cells
+function get_hero_status(num_curr_cells)
+    if num_curr_cells[1] >= 1000 && num_curr_cells[3] >= 6000
+        return "happy"
+    end
+
+    return "sad"
+end
 
 # create and launch a Dash app
-app = dash(update_title = "")
+app = dash(update_title="")
 app.title = "SuperHero Strawberry Demo"
 time_min = time_span[1]
-time_max = time_span[2] / 2
+time_max = time_span[2]
 num_time_slider_ticks = 5
 slider_time_points = collect(LinRange(time_min, time_max, num_time_slider_ticks))
 slider_markers = Dict([Int(i) => string(i) for i in slider_time_points])
 line_plot_time_points = collect(LinRange(time_min, time_max, 100))
 num_d3_increments = 0
 num_d3_decrements = 0
+cell_colors = ["#4063D8", "#DAA520", "#CB3C33"]
 
 # define page layout
 app.layout = html_div() do
@@ -47,42 +75,69 @@ app.layout = html_div() do
     html_p("Drag the slider at the bottom to change current time"),
     html_div(
         (
-            dcc_graph(id = "blood-cells"),
-            dcc_graph(id = "hero-status"),
-            dcc_graph(id = "bar-plot"),
-            dcc_graph(id = "line-plot"),
+            dcc_graph(id="blood-cells"),
+            dcc_graph(id="hero-status"),
+            dcc_graph(id="bar-plot"),
+            dcc_graph(id="line-plot"),
         ),
-        id = "output-panels",
+        id="output-panels",
     ),
     html_div(
         (
+            html_div(
+                (
+                    html_div(
+                        (
+                            html_span("Change death rate of stem cells: "),
+                            html_button(
+                                id="increase-d1",
+                                children="+",
+                                n_clicks=0,
+                            ),
+                            html_button(
+                                id="decrease-d1",
+                                children="-",
+                                n_clicks=0,
+                            ),
+                        ),
+                        className="param-change-group",
+                    ),
+                    html_div(
+                        (
+                            html_span("Change death rate of differentiated cells: "),
+                            html_button(
+                                id="increase-d3",
+                                children="+",
+                                n_clicks=0,
+                            ),
+                            html_button(
+                                id="decrease-d3",
+                                children="-",
+                                n_clicks=0,
+                            ),
+                        ),
+                        className="param-control-group",
+                    ),
+                ),
+                id="param-controls",
+            ),
             dcc_slider(
-                id = "time-slider",
-                included = true,
-                min = time_min,
-                max = time_max,
-                step = 0.1,
-                marks = slider_markers,
-                value = time_span[1],
-                updatemode = "drag",
-            ),
-            html_span("Change death rate of differentiated cells: "),
-            html_button(
-                id = "increase-d3",
-                children = "+",
-                n_clicks = 0,
-            ),
-            html_button(
-                id = "decrease-d3",
-                children = "-",
-                n_clicks = 0,
+                id="time-slider",
+                included=true,
+                min=time_min,
+                max=time_max,
+                step=0.1,
+                marks=slider_markers,
+                value=time_span[1],
+                updatemode="drag",
             ),
         ),
-        id = "input-widgets",
+        id="input-widgets",
     )
 end
 
 # define callbacks to user inputs
+# update all panels given current time on time slider
 callback!(
     app,
     Output("blood-cells", "figure"),
@@ -90,73 +145,81 @@ callback!(
     Output("bar-plot", "figure"),
     Output("line-plot", "figure"),
     Input("time-slider", "value"),
-    Input("increase-d3", "n_clicks"),
-    Input("decrease-d3", "n_clicks"),
-) do curr_time, num_increase_clicks, num_decrease_clicks
-    global num_d3_increments
-    global num_d3_decrements
-    global ss_solution
+) do curr_time
+    num_curr_cells = ss_solution(curr_time)
+    num_cells = ss_solution(line_plot_time_points)
+    # yaxis_range = [0, maximum(num_cells)]
+    yaxis_range = [0, max(10000, maximum(num_cells))]
 
-    if num_increase_clicks != num_d3_increments || num_decrease_clicks != num_d3_decrements
-        if num_increase_clicks != num_d3_increments
-            num_d3_increments = num_increase_clicks
-            ss_params[end] += 0.05
-        else
-            num_d3_decrements = num_decrease_clicks
-            ss_params[end] -= 0.05
-        end
-
-        ss_ode_problem = ODEProblem(ss_system_spec, init_condition, time_span,
-                                    ss_params)
-        ss_solution = solve(ss_ode_problem, Tsit5())
-    end
-    ss_solution_data = ss_solution(line_plot_time_points)
-    yaxis_range = [0, maximum(ss_solution_data)]
-
-    # TODO: render blood cells according to ODE values at current time
+    # render blood cells according to ODE values at current time
+    indiv_cell_colors = cat(
+        [fill(cell_colors[i], trunc(Int, num_curr_cells[i]))
+            for i=1:num_cell_types]...,
+        dims=1)
+    shuffle!(indiv_cell_colors)
     blood_cell_data = scatter(
-        x = [0],
-        y = [0],
-        text = ["Placeholder for blood cells"],
-        textfont_size = 24,
-        mode = "text",
+        y=rand(length(indiv_cell_colors)),
+        marker=attr(color=indiv_cell_colors),
+        mode="markers",
     )
     blood_cell_layout = Layout(
-        title = string("Current time: ", curr_time),
+        title="Current time: $(curr_time)",
     )
 
-    # TODO: render hero status according to ODE values at current time
+    # render hero status according to ODE values at current time
+    hero_status = get_hero_status(num_curr_cells)
     hero_status_data = scatter(
-        x = [0],
-        y = [0],
-        text = ["Placeholder for hero status"],
-        textfont_size = 24,
-        mode = "text",
+        x=[0, 1],
+        y=[0, 1],
+        mode="markers",
+        marker_opacity=0,
+    )
+    hero_status_layout = Layout(
+        template=templates.plotly_white,
+        xaxis=attr(
+            visible=false,
+            range=[0, 1],
+        ),
+        yaxis=attr(
+            visible=false,
+            range=[0, 1],
+        ),
+        images=[
+            attr(
+                source="assets/strawberry-superhero-$(hero_status).png",
+                x=0.5,
+                y=1.0,
+                sizex=1.0,
+                sizey=1.0,
+                xanchor="center",
+                yanchor="center",
+            )
+        ]
     )
 
     # render ODE values at on current time as bar plot
-    # create bars for all species
+    # create bars for all cell types
     bar_plot_data = bar(
-        x = species_names,
-        y = ss_solution(curr_time),
-        marker_color = 1:num_species,
+        x=cell_types,
+        y=num_curr_cells,
+        marker_color=cell_colors,
     )
 
     # define plot layout
     bar_plot_layout = Layout(
-        xaxis_title = "Species",
-        yaxis_range = yaxis_range,
-        yaxis_title = "Value",
+        xaxis_title="Cell type",
+        yaxis_range=yaxis_range,
+        yaxis_title="Value",
     )
 
     # render ODE values as line plot for the entire duration of time
-    # create traces for all species
+    # create traces for all cell types
     line_plot_data = [
         scatter(
-            x = line_plot_time_points,
-            y = ss_solution_data[i, :],
-            name = species_names[i],
-        ) for i = 1:num_species
+            x=line_plot_time_points,
+            y=num_cells[i, :],
+            name=cell_types[i],
+        ) for i = 1:num_cell_types
     ]
 
     # create a vertical line marking current time
@@ -164,21 +227,59 @@ callback!(
 
     # define plot layout
     line_plot_layout = Layout(
-        xaxis_title = "Time",
-        yaxis_range = yaxis_range,
-        yaxis_title = "Value",
-        shapes = curr_time_line,
-        showlegend = true,
-        legend = attr(x = 1, xanchor = "right", y = 1, bgcolor = "#FFFFFF00"),
+        xaxis_title="Time",
+        yaxis_range=yaxis_range,
+        yaxis_title="Value",
+        shapes=curr_time_line,
+        showlegend=true,
+        legend=attr(x=1, xanchor="right", y=1, bgcolor="#FFFFFF00"),
     )
 
     return (
         Plot(blood_cell_data, blood_cell_layout),
-        Plot(hero_status_data),
+        Plot(hero_status_data, hero_status_layout),
         Plot(bar_plot_data, bar_plot_layout),
         Plot(line_plot_data, line_plot_layout),
     )
 end
 
+# change parameter value from button input
+callback!(
+    app,
+    Output("time-slider", "value"),
+    Input("increase-d1", "n_clicks"),
+    Input("decrease-d1", "n_clicks"),
+    Input("increase-d3", "n_clicks"),
+    Input("decrease-d3", "n_clicks"),
+    State("time-slider", "value"),
+) do _, _, _, _, curr_time
+    ctx = callback_context()
+    if length(ctx.triggered) == 0
+        return curr_time
+    end
+
+    global ss_solution
+
+    button_id = split(ctx.triggered[1].prop_id, ".")[1]
+    action, param = split(button_id, "-")
+    param_idx = ss_param2idx[param]
+    param_old = ss_params[param_idx]
+
+    if action == "increase"
+        ss_params[param_idx] += 0.05
+    else
+        ss_params[param_idx] = max(ss_params_min[param_idx],
+                                   ss_params[param_idx] - 0.05)
+    end
+
+    # update SDE solution only when the parameter has a new value
+    if ss_params[param_idx] != param_old
+        ss_solution = get_ss_solution()
+    end
+
+    curr_time
+end
+
+
 println("Lauching Dash app...")
-run_server(app, "0.0.0.0", debug = true)
+run_server(app, "0.0.0.0", 8050, debug=true)
