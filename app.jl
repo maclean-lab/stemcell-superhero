@@ -1,3 +1,4 @@
+using Printf
 using Random
 
 using DifferentialEquations
@@ -8,7 +9,7 @@ using PlotlyJS
 println("Initializing Dash app...")
 
 # define a system to be simulated
-# FIXME: negative values in solution when parameter values are altered
+# negative values in solution when parameter values are altered
 function μ_func(du, u, p, t)
     SC, P, D = u
     λ, a₁, a₂, a₃, a₄, a₅, a₆, d₁, d₂, d₃ = p
@@ -27,6 +28,7 @@ function σ_func(du, u, p, t)
   du[3] = 10
 end
 
+# TODO: make parameter values and ODE solution local in user session
 cell_types = ["Stem", "Progenitor", "Differentiated"]
 num_cell_types = length(cell_types)
 ss_params = [20.0, 0.33, 0.3, 0.35, 0.33, 0.33, 0.33, 0.0, 0.4, 0.5]
@@ -61,9 +63,9 @@ app = dash(update_title="")
 app.title = "SuperHero Strawberry Demo"
 time_min = time_span[1]
 time_max = time_span[2]
-num_time_slider_ticks = 5
+num_time_slider_ticks = 6
 slider_time_points = collect(LinRange(time_min, time_max, num_time_slider_ticks))
-slider_markers = Dict([Int(i) => string(i) for i in slider_time_points])
+slider_markers = Dict([Int(i) => @sprintf("%d", i) for i in slider_time_points])
 line_plot_time_points = collect(LinRange(time_min, time_max, 100))
 num_d3_increments = 0
 num_d3_decrements = 0
@@ -86,6 +88,7 @@ app.layout = html_div() do
         (
             html_div(
                 (
+                    # TODO: display actual parameter values
                     html_div(
                         (
                             html_span("Change death rate of stem cells: "),
@@ -100,7 +103,7 @@ app.layout = html_div() do
                                 n_clicks=0,
                             ),
                         ),
-                        className="param-change-group",
+                        className="param-control-group",
                     ),
                     html_div(
                         (
@@ -152,6 +155,7 @@ callback!(
     yaxis_range = [0, max(10000, maximum(num_cells))]
 
     # render blood cells according to ODE values at current time
+    # TODO: add legend (color -> cell type)
     indiv_cell_colors = cat(
         [fill(cell_colors[i], trunc(Int, num_curr_cells[i]))
             for i=1:num_cell_types]...,
@@ -163,7 +167,12 @@ callback!(
         mode="markers",
     )
     blood_cell_layout = Layout(
-        title="Current time: $(curr_time)",
+        xaxis=attr(
+            visible=false,
+        ),
+        yaxis=attr(
+            visible=false,
+        ),
     )
 
     # render hero status according to ODE values at current time
@@ -209,7 +218,8 @@ callback!(
     bar_plot_layout = Layout(
         xaxis_title="Cell type",
         yaxis_range=yaxis_range,
-        yaxis_title="Value",
+        yaxis_title="Number of cells",
+        font=attr(size=16),
     )
 
     # render ODE values as line plot for the entire duration of time
@@ -219,6 +229,7 @@ callback!(
             x=line_plot_time_points,
             y=num_cells[i, :],
             name=cell_types[i],
+            line=attr(color=cell_colors[i]),
         ) for i = 1:num_cell_types
     ]
 
@@ -229,10 +240,11 @@ callback!(
     line_plot_layout = Layout(
         xaxis_title="Time",
         yaxis_range=yaxis_range,
-        yaxis_title="Value",
+        yaxis_title="Number of cells",
         shapes=curr_time_line,
         showlegend=true,
         legend=attr(x=1, xanchor="right", y=1, bgcolor="#FFFFFF00"),
+        font=attr(size=16),
     )
 
     return (
@@ -281,5 +293,5 @@ callback!(
 end
 
 
-println("Lauching Dash app...")
+println("Launching Dash app...")
 run_server(app, "0.0.0.0", 8050, debug=true)
