@@ -29,7 +29,7 @@ function σ_func(du, u, p, t)
 end
 
 # TODO: make parameter values and ODE solution local in user session
-cell_types = ["Stem", "Progenitor", "Differentiated"]
+cell_types = ["Stem cells", "Progenitor cells", "Red blood cells"]
 num_cell_types = length(cell_types)
 ss_params = [20.0, 0.33, 0.3, 0.35, 0.33, 0.33, 0.33, 0.0, 0.4, 0.5]
 ss_params_min = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.24]
@@ -73,8 +73,8 @@ cell_colors = ["#4063D8", "#DAA520", "#CB3C33"]
 
 # define page layout
 app.layout = html_div() do
-    html_h1("SuperHero Strawberry Demo"),
-    html_p("Drag the slider at the bottom to change current time"),
+    html_h1("Welcome to stem cell superhero!"),
+    html_p("Drag the slider to change current time. Can you make our strawberry superhero happy with the right balance of stem and blood cells?"),
     html_div(
         (
             dcc_graph(id="blood-cells"),
@@ -91,7 +91,7 @@ app.layout = html_div() do
                     # TODO: display actual parameter values
                     html_div(
                         (
-                            html_span("Change death rate of stem cells: "),
+                            html_span("Change stem cell death rate: "),
                             html_button(
                                 id="increase-d1",
                                 children="+",
@@ -107,7 +107,7 @@ app.layout = html_div() do
                     ),
                     html_div(
                         (
-                            html_span("Change death rate of differentiated cells: "),
+                            html_span("Change red blood cell death rate: "),
                             html_button(
                                 id="increase-d3",
                                 children="+",
@@ -243,6 +243,7 @@ callback!(
         yaxis_title="Number of cells",
         shapes=curr_time_line,
         showlegend=true,
+	linewidth=10,
         legend=attr(x=1, xanchor="right", y=1, bgcolor="#FFFFFF00"),
         font=attr(size=16),
     )
