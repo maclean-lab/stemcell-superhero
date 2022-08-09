@@ -14,9 +14,13 @@
     text-align: center;
 }
 
-.param-control-group {
+.param-control-widget {
     display: inline-block;
     padding-left: 10px;
+    padding-right: 10px;
+}
+
+.param-control-widget span {
     padding-right: 10px;
 }
 
