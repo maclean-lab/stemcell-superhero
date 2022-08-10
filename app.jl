@@ -13,8 +13,13 @@ function get_command_line_args()
     arg_parse_settings = ArgParseSettings()
 
     @add_arg_table arg_parse_settings begin
+        "--path_prefix"
+            help = "path prefix for this web app, e.g. \"/scsh/\" when deployed
+                    on macleanlab.usc.edu/scsh"
+            arg_type = String
+            default = "/"
         "--debug"
-            help = "enable Dash debugging mode"
+            help = "enable Dash dev tools"
             action = :store_true
     end
 
@@ -145,7 +150,7 @@ function get_input_widgets()
 end
 
 "Add a callback that updates all output panels."
-function add_output_update_callback(app)
+function add_output_update_callback(app, path_prefix)
     callback!(
         app,
         Output("blood-cells", "figure"),
@@ -185,6 +190,7 @@ function add_output_update_callback(app)
 
         # render hero status according to cell numbers at current time
         hero_status = get_hero_status(num_curr_cells)
+        image_path = "$(path_prefix)assets/strawberry-superhero-$(hero_status).png"
         hero_status_data = scatter(
             x=[0, 1],
             y=[0, 1],
@@ -203,7 +209,7 @@ function add_output_update_callback(app)
             ),
             images=[
                 attr(
-                    source="assets/strawberry-superhero-$(hero_status).png",
+                    source=image_path,
                     x=0.5,
                     y=1.0,
                     sizex=1.0,
@@ -308,12 +314,14 @@ end
 "Create and launch the Stem Cell Superhero app."
 function main()
     println("Initializing Dash app...")
+    flush(stdout)
 
     # get command line arguments
     command_line_args = get_command_line_args()
+    path_prefix = command_line_args["path_prefix"]
 
     # create and launch a Dash app
-    app = dash(update_title="")
+    app = dash(update_title="", requests_pathname_prefix=path_prefix)
     app.title = "Stem Cell Superhero"
 
     # define page layout
@@ -337,11 +345,12 @@ function main()
     end
 
     # add callbacks
-    add_output_update_callback(app)
+    add_output_update_callback(app, path_prefix)
     add_param_control_callback(app)
 
     # launch Dash app
     println("Launching Dash app...")
+    flush(stdout)
     run_server(app, "0.0.0.0", 8080, debug=command_line_args["debug"])
 end
 
