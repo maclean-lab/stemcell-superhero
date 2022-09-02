@@ -1,4 +1,4 @@
-# outreach-project
+# MacLean Lab Outreach Project
 Interactive cell differentiation model demo
 
 ## Set up the web app for the first time

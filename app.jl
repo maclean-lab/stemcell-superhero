@@ -150,7 +150,7 @@ function get_input_widgets()
 end
 
 "Add a callback that updates all output panels."
-function add_output_update_callback(app, path_prefix)
+function add_output_update_callback(app, assets_dir)
     callback!(
         app,
         Output("blood-cells", "figure"),
@@ -169,55 +169,109 @@ function add_output_update_callback(app, path_prefix)
         yaxis_range = [0, yaxis_max]
 
         # render blood cells according to cell numbers at current time
+        # for performance we only render 1/10 cells
         indiv_cell_colors = cat(
-            [fill(cell_colors[i], trunc(Int, num_curr_cells[i]))
+            [fill(cell_colors[i], trunc(Int, num_curr_cells[i] / 10))
             for i=1:num_cell_types]...,
             dims=1)
+        num_bone_cells = length(indiv_cell_colors)
         shuffle!(Random.seed!(0), indiv_cell_colors)
+        bone_x0 = -1.0
+        bone_y0 = -0.07
+        bone_x1 = Float64(num_bone_cells)
+        bone_y1 = 1.1
         blood_cell_data = scatter(
-            y=rand(length(indiv_cell_colors)),
+            y=rand(num_bone_cells),
             marker=attr(color=indiv_cell_colors),
             mode="markers",
         )
         blood_cell_layout = Layout(
-            xaxis=attr(
-                visible=false,
-            ),
-            yaxis=attr(
-                visible=false,
-            ),
-        )
-
-        # render hero status according to cell numbers at current time
-        hero_status = get_hero_status(num_curr_cells)
-        image_path = "$(path_prefix)assets/strawberry-superhero-$(hero_status).png"
-        hero_status_data = scatter(
-            x=[0, 1],
-            y=[0, 1],
-            mode="markers",
-            marker_opacity=0,
-        )
-        hero_status_layout = Layout(
             template=templates.plotly_white,
             xaxis=attr(
                 visible=false,
-                range=[0, 1],
             ),
             yaxis=attr(
                 visible=false,
-                range=[0, 1],
+                range=[-0.15, 1.80],
             ),
+            shapes=[
+                line(x0=bone_x0, y0=bone_y0, x1=bone_x1, y1=bone_y0;
+                     line_color="#B8A487", line_width=8),
+                line(x0=bone_x0, y0=bone_y1, x1=bone_x1, y1=bone_y1;
+                     line_color="#B8A487", line_width=8),
+                rect(x0=bone_x0, y0=bone_y0, x1=bone_x1, y1=bone_y1;
+                     fillcolor="#E6D5B3", layer="below", line_width=0),
+            ],
             images=[
                 attr(
-                    source=image_path,
+                    source=joinpath(assets_dir, "bone_marrow.png"),
                     x=0.5,
                     y=1.0,
                     sizex=1.0,
                     sizey=1.0,
                     xanchor="center",
                     yanchor="center",
+                    layer="below",
                 )
-            ]
+            ],
+        )
+
+        # render hero status according to cell numbers at current time
+        hero_status = get_hero_status(num_curr_cells)
+        hero_status_data = scatter(
+            x=[0.12, 0.12, 0.12],
+            y=[0.65, 0.5, 0.35],
+            mode="markers",
+            marker=attr(color=cell_colors, size=20),
+        )
+        hero_status_layout = Layout(
+            template=templates.plotly_white,
+            xaxis=attr(
+                visible=false,
+                range=[0.0, 1.0],
+            ),
+            yaxis=attr(
+                visible=false,
+                range=[0.0, 1.0],
+            ),
+            images=[
+                attr(
+                    source=joinpath(assets_dir, "hero_$(hero_status).png"),
+                    x=0.65,
+                    y=1.0,
+                    sizex=1.0,
+                    sizey=1.0,
+                    xanchor="center",
+                    yanchor="center",
+                    layer="below",
+                )
+            ],
+            annotations=[
+                attr(
+                    x=0.15,
+                    y=0.65,
+                    xanchor="left",
+                    text="Stem cells",
+                    font=attr(size=16, color=:black),
+                    showarrow=false,
+                ),
+                attr(
+                    x=0.15,
+                    y=0.5,
+                    xanchor="left",
+                    text="Progenitor cells",
+                    font=attr(size=16, color=:black),
+                    showarrow=false,
+                ),
+                attr(
+                    x=0.15,
+                    y=0.35,
+                    xanchor="left",
+                    text="Red blood cells",
+                    font=attr(size=16, color=:black),
+                    showarrow=false,
+                ),
+            ],
         )
 
         # render cell numbers at on current time as bar plot
@@ -319,10 +373,12 @@ function main()
     # get command line arguments
     command_line_args = get_command_line_args()
     path_prefix = command_line_args["path_prefix"]
+    assets_dir = "$(path_prefix)assets"
 
     # create and launch a Dash app
     app = dash(update_title="", requests_pathname_prefix=path_prefix)
     app.title = "Stem Cell Superhero"
+    plot_config = Dict("staticPlot"=>true)
 
     # define page layout
     app.layout = html_div() do
@@ -334,10 +390,10 @@ function main()
                          of stem and blood cells?"),
         html_div(
             children=[
-                dcc_graph(id="blood-cells"),
-                dcc_graph(id="hero-status"),
-                dcc_graph(id="bar-plot"),
-                dcc_graph(id="line-plot"),
+                dcc_graph(id="blood-cells", config=plot_config),
+                dcc_graph(id="hero-status", config=plot_config),
+                dcc_graph(id="bar-plot", config=plot_config),
+                dcc_graph(id="line-plot", config=plot_config),
             ],
             id="output-panels",
         ),
@@ -345,7 +401,7 @@ function main()
     end
 
     # add callbacks
-    add_output_update_callback(app, path_prefix)
+    add_output_update_callback(app, assets_dir)
     add_param_control_callback(app)
 
     # launch Dash app
