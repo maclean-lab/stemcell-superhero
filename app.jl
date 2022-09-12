@@ -49,9 +49,10 @@ cell_types = ["Stem cells", "Progenitor cells", "Red blood cells"]
 cell_colors = ["#4063D8", "#DAA520", "#CB3C33"]
 num_cell_types = length(cell_types)
 ss_params = ["lambda", "a1", "a2", "a3", "a4", "a5", "a6", "d1", "d2", "d3"]
-ss_param_vals_init = [20.0, 0.33, 0.3, 0.35, 0.33, 0.33, 0.33, 0.0, 0.4, 0.5]
+ss_param_vals_init = [25.0, 0.33, 0.3, 0.35, 0.33, 0.33, 0.33, 0.01, 0.4, 0.5]
 ss_param_mins = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.24]
 ss_param_indices = Dict(pn => i for (i, pn) in enumerate(ss_params))
+ss_param_increments = Dict("d1" => 0.01, "d3" => 0.05)
 time_min = 0.0
 time_max = 100.0
 time_span = (time_min, time_max)
@@ -72,8 +73,18 @@ function get_ss_solution(params)
 end
 
 "Determine hero status based on number of cells."
-function get_hero_status(num_cells)
-    return num_cells[1] >= 1000 && num_cells[3] >= 6000 ? "happy" : "sad"
+function get_hero_status(num_cells, curr_time)
+    if curr_time > 10
+        if num_cells[3] < 6000
+            return "sad"
+        elseif num_cells[1] >= 800
+            return "happy"
+        else
+            return "neutral"
+        end
+    end
+
+    return "neutral"
 end
 
 "Get prompt for displaying parameter value in parameter control widget."
@@ -95,13 +106,13 @@ function get_input_widgets()
                         id="d1-value",
                     ),
                     html_button(
-                        children="+",
-                        id="increase-d1",
+                        children="-",
+                        id="decrease-d1",
                         n_clicks=0,
                     ),
                     html_button(
-                        children="-",
-                        id="decrease-d1",
+                        children="+",
+                        id="increase-d1",
                         n_clicks=0,
                     ),
                 ],
@@ -117,13 +128,13 @@ function get_input_widgets()
                         id="d3-value",
                     ),
                     html_button(
-                        id="increase-d3",
-                        children="+",
+                        id="decrease-d3",
+                        children="-",
                         n_clicks=0,
                     ),
                     html_button(
-                        id="decrease-d3",
-                        children="-",
+                        id="increase-d3",
+                        children="+",
                         n_clicks=0,
                     ),
                 ],
@@ -177,11 +188,11 @@ function add_output_update_callback(app, assets_dir)
         num_bone_cells = length(indiv_cell_colors)
         shuffle!(Random.seed!(0), indiv_cell_colors)
         bone_x0 = -1.0
-        bone_y0 = -0.07
-        bone_x1 = Float64(num_bone_cells)
-        bone_y1 = 1.1
+        bone_y0 = 0.05
+        bone_x1 = Float64(num_bone_cells) + 1.0
+        bone_y1 = 0.65
         blood_cell_data = scatter(
-            y=rand(num_bone_cells),
+            y=rand(num_bone_cells) .* 0.5 .+ 0.1,
             marker=attr(color=indiv_cell_colors),
             mode="markers",
         )
@@ -192,7 +203,7 @@ function add_output_update_callback(app, assets_dir)
             ),
             yaxis=attr(
                 visible=false,
-                range=[-0.15, 1.80],
+                range=[0.0, 1.0],
             ),
             shapes=[
                 line(x0=bone_x0, y0=bone_y0, x1=bone_x1, y1=bone_y0;
@@ -217,7 +228,7 @@ function add_output_update_callback(app, assets_dir)
         )
 
         # render hero status according to cell numbers at current time
-        hero_status = get_hero_status(num_curr_cells)
+        hero_status = get_hero_status(num_curr_cells, curr_time)
         hero_status_data = scatter(
             x=[0.12, 0.12, 0.12],
             y=[0.65, 0.5, 0.35],
@@ -340,10 +351,12 @@ function add_param_control_callback(app)
         param_old = param_vals[param_idx]
 
         if action == "increase"
-            param_vals[param_idx] += 0.05
+            param_vals[param_idx] += ss_param_increments[param]
         else
-            param_vals[param_idx] = max(ss_param_mins[param_idx],
-                                        param_vals[param_idx] - 0.05)
+            param_vals[param_idx] = max(
+                ss_param_mins[param_idx],
+                param_vals[param_idx] - ss_param_increments[param]
+            )
         end
 
         if param_vals[param_idx] == param_old
