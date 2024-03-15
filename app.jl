@@ -73,40 +73,17 @@ function get_ss_solution(params)
     return Dict(cell_types[i] => ss_sol[i, :] for i in 1:num_cell_types)
 end
 
-<<<<<<< HEAD
-"Determine hero status based on number of cells."
-function get_hero_status(num_cells, curr_time)
-    if curr_time > 10
-        if num_cells[3] < 6000
-            return "sad"
-        elseif num_cells[1] >= 800
-            return "happy"
-        else
-            return "neutral"
-        end
-    end
 
-    return "neutral"
-=======
 ss_solution = get_ss_solution()
 
 # determine hero status based on number of cells
 function get_hero_status(num_curr_cells)
-<<<<<<< HEAD
 	if num_cells[3] >= 2000 && num_cells[3] <= 1000
             return “sad”
         elseif num_cells[1] >= 100 && num_cells[1] <= 200
             return “happy”
         else
             return “neutral”
->>>>>>> 29c76cf (update satisfactory BM  conditions)
-=======
-    if num_curr_cells[1] >= 1000 && num_curr_cells[3] >= 6000
-        return "happy"
-    end
-
-    return "sad"
->>>>>>> 1a7a296 (revert to pre-2024)
 end
 
 "Get prompt for displaying parameter value in parameter control widget."
