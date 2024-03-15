@@ -75,17 +75,20 @@ end
 "Determine hero status based on number of cells."
 function get_hero_status(num_cells, curr_time)
     if curr_time > 10
-        if num_cells[3] < 6000
-            return "sad"
-        elseif num_cells[1] >= 800
-            return "happy"
+       if num_cells[3] >= 2000 && num_cells[3] <= 1000
+            return “sad”
+        elseif num_cells[1] >= 100 && num_cells[1] <= 200
+            return “happy”
         else
-            return "neutral"
+            return “neutral”
         end
     end
-
+    
     return "neutral"
 end
+
+
+
 
 "Get prompt for displaying parameter value in parameter control widget."
 function get_param_control_prompt(param_full_name, param_value)
