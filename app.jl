@@ -76,14 +76,14 @@ end
 function get_hero_status(num_cells, curr_time)
     if curr_time > 10
        if num_cells[3] >= 2000 && num_cells[3] <= 1000
-            return “sad”
+            return "sad"
         elseif num_cells[1] >= 100 && num_cells[1] <= 200
-            return “happy”
+            return "happy"
         else
-            return “neutral”
+            return "neutral"
         end
     end
-    
+
     return "neutral"
 end
 
