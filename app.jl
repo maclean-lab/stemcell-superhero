@@ -75,9 +75,9 @@ end
 "Determine hero status based on number of cells."
 function get_hero_status(num_cells, curr_time)
     if curr_time > 10
-       if num_cells[3] >= 2000 || num_cells[3] <= 1000
+        if num_cells[3] >= 2000 || num_cells[3] <= 1000
             return "sad"
-        elseif num_cells[1] >= 50 && num_cells[1] <= 300
+        elseif 0.01 <= num_cells[1] / num_cells[3] <= 0.15
             return "happy"
         else
             return "neutral"
@@ -177,7 +177,7 @@ function add_output_update_callback(app, assets_dir)
         curr_time_idx = time_point_indices[curr_time]
         num_curr_cells = [ss_solution[ct][curr_time_idx] for ct in cell_types]
         yaxis_max = max(
-            10000,
+            5000,
             maximum(maximum(cell_nums) for (_, cell_nums) in ss_solution)
         )
         yaxis_range = [0, yaxis_max]
